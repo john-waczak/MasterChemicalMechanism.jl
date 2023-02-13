@@ -18,3 +18,10 @@ A package for ingesting models from the [Master Chemical Mechanism](http://chmli
 6. Simulate 
 7. Analyze Results 
 8. Combine with data to perform *Data Assimilation*, i.e. fitting the model to real data.
+
+
+# Packages to Use 
+
+- We should usse `Unitful.jl` to enable easy unit tracking + conversion for our simulation
+- We should use `ParameterHandling.jl` to easily handle dictionaries of parameters in our simulations. 
+- We should use `Catalyst.jl` to represent the model symbolically
