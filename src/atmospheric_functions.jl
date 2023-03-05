@@ -4,7 +4,7 @@
 """
     calcAirDensity(press, temp)
 
-Calculate the number density of air in [molecules cm-3] from the pressure in [mbar] and the temperature in [K]. 
+Calculate the number density of air in [molecules cm-3] from the pressure in [mbar] and the temperature in [K].
 """
 function calcAirDensity(press, temp)
 
