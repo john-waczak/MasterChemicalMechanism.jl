@@ -1,0 +1,33 @@
+---
+title: "Relevant SciML Tutorials"
+date: today
+format:
+    pdf: default
+    html: 
+      self-contained: true
+
+reference-location: margin
+citation-location: margin
+---
+
+
+# Relevant Links 
+
+## Tutorials
+
+- [SciML Overview](https://docs.sciml.ai/Overview/stable/getting_started/getting_started/)
+- [SciML Workshop](https://docs.sciml.ai/SciMLWorkshop/stable/)
+- [Extended Tutorials](https://docs.sciml.ai/SciMLTutorialsOutput/stable/)
+- [SciML Book](https://book.sciml.ai/)
+
+## Chemical Mechanism Modeling
+
+- [Catalyst](https://docs.sciml.ai/Catalyst/stable/)
+- [ReactionNetworkImporters](https://docs.sciml.ai/ReactionNetworkImporters/stable/)
+- [Reaction Mechanism Simulator](https://reactionmechanismgenerator.github.io/ReactionMechanismSimulator.jl/latest/)
+
+## Model Analysis
+
+- [EasyModelAnalysis](https://docs.sciml.ai/EasyModelAnalysis/stable/getting_started/)
+- [Sensativity Analysis](https://docs.sciml.ai/SciMLSensitivity/stable/)
+- [Parameter Estimation](https://docs.sciml.ai/DiffEqParamEstim/stable/)
