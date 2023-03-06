@@ -22,3 +22,6 @@ function calcAirDensity(press, temp)
 
     return press_final/(kb*temp)
 end
+
+
+# we should do this symbolically

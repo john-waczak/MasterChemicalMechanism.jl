@@ -9,3 +9,10 @@ include("atmospheric_functions.jl")
 # include("photolysis.jl")
 
 end
+
+
+
+# use Event Handling and Callback Functions to update parameters (e.g. T, P, RH, etc...) with measurement values
+# also use it to update the state vector (i.e. concentrations, reaction rate functions, photolysis rates, ROx)
+# via the data assimilation step for Extended Kalman Filter
+# https://docs.sciml.ai/ModelingToolkit/stable/basics/Events/
