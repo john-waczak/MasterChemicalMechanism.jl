@@ -1,13 +1,21 @@
+"""
+    function read_fac_file(path::String)
 
-fpath = "../src/data/extracted/full/mcm_subset.fac"
-isfile(fpath)
+Parse a mechanism file in the FACSIMILE format (ending with .fac). This assumes that the file has all necessary sections to define the master chemical mechanism including
 
-fac_file = String(read(fpath))
+- `VOCs`: a list of VOCs tracked in the simulation
+- `generic_rate_coefficients`
+- `complex_rate_coefficients`
+- `peroxy_radicals`: the species being summed to form `RO2`
+- `reaction_definitions`: The list of chemical reactions in our mechanism
 
+# Output
+Returns a dictionary containing the above sections as text.
+"""
 function read_fac_file(path::String)
     out_dict = Dict()
 
-    fac_file = String(path)
+    fac_file = String(read(path))
     split_file = split(fac_file, "*;")
 
     out_dict["VOCs"] = split(split_file[3], "\r\n")[3:end-2]
@@ -25,32 +33,18 @@ function read_fac_file(path::String)
     # use regex instead
     eqn_idxs = findall(r"%(.*?)\;",fac_file)  # find anything between } and ;
     out_dict["reaction_definitions"] = [fac_file[eqn_idx] for eqn_idx ∈ eqn_idxs]
-
+    out_dict["reaction_definitions"] = [strip(replace(rxn, "%"=>"", ";"=>"", "\""=>"")) for rxn ∈ out_dict["reaction_definitions"]]
 
     return out_dict
 end
 
-fac_dict = read_fac_file(fac_file)
-
-fac_dict["VOCs"]
-fac_dict["generic_rate_coefficients"];
-fac_dict["generic_rate_coefficients"][1]
-fac_dict["generic_rate_coefficients"][end]
-
-fac_dict["complex_rate_coefficients"];
-fac_dict["complex_rate_coefficients"][1]
-fac_dict["complex_rate_coefficients"][end]
-
-fac_dict["peroxy_radicals"]
-
-fac_dict["reaction_definitions"]
 
 
+"""
+    function species_and_stoich(rxn_half)
 
-rxns = fac_dict["reaction_definitions"]
-rxns = [strip(replace(rxn, "%"=>"", ";"=>"", "\""=>"")) for rxn ∈ rxns]
-
-
+Given half of a reaction (either reactants or products), parse the equation and return a list of species involved and associated stoichiometric coefficients. If no species is involved (production or destruction), set the species to `nothing`.
+"""
 function species_and_stoich(rxn_half)
     species_list = strip.(split(rxn_half, "+"))
 
@@ -81,6 +75,12 @@ function species_and_stoich(rxn_half)
 end
 
 
+
+"""
+    function parse_rxns(rxns)
+
+Given a list of equations `rxns`, parse equation returning a list of unique species in the entire mechanism and a list of reaction components, i.e. tuples of `(reactants, reactants_stoich, products, products_stoich, rate_equation)`
+"""
 function parse_rxns(rxns)
     species_list = []
     reactions = []
@@ -103,24 +103,3 @@ function parse_rxns(rxns)
 
     return unique(vcat(species_list...)), reactions
 end
-
-species, reactions = parse_rxns(rxns)
-
-size(species)
-size(reactions)
-
-
-# m=2.55e+19
-# o2=0.2095*m
-
-
-# REAL(dp)::M, N2, O2, RO2, H2O, TEMP,
-
-# We should specify
-# temp, pressure, H2O as variables which we can set initially or read from datafile
-
-
-# RO2 list: https://github.com/AtChem/AtChem2/blob/master/mcm/peroxy-radicals_v3.3.1
-# photolysis rates: https://github.com/AtChem/AtChem2/blob/master/mcm/photolysis-rates_v3.3.1
-
-# atmospheric functions (i.e. M calculation) https://github.com/AtChem/AtChem2/blob/37503aefb02bb54fa3b04899c68d15afa8b1c8c0/src/atmosphereFunctions.f90
