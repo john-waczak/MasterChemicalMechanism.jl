@@ -11,7 +11,9 @@ import MasterChemicalMechanism: read_fac_file, parse_rxns
 # 1. parse .fac file for text with reaction info
 # include("parse_fac.jl")
 
-fpath = "./src/data/extracted/full/mcm_subset.fac"
+#fpath = "./src/data/extracted/full/mcm_subset.fac"
+#fpath = "./src/data/extracted/monoterpines/limonene.fac"
+fpath = "./src/data/extracted/alkanes/methane.fac"
 ispath(fpath)
 
 fac_dict = read_fac_file(fpath)
@@ -338,6 +340,10 @@ rxns[1]
 # set simulation timescale to minutes
 @named mcm = ReactionSystem(rxns, t, collect(X), [T, P])
 
+println(parameters(mcm))
+println(reactions(mcm))
+
+
 # too much memory for tex to handle
 # ltx = latexify(mcm)
 # # save to file
@@ -370,20 +376,28 @@ for (key, val) ∈ init_dict
 end
 u₀map = Pair.(collect(X), u₀)   # map variable to its initial value
 
-params = [:T => 291.483, # 65 °F
-          :P => 1013.2  # milibars standard pressure
-          ]
+params = (
+    T => 291.483, # 65 °F
+    P => 1013.2  # milibars standard pressure
+)
+
 
 
 
 # let's convert the model into an ODESystem so we can simplify
-odesys = convert(ODESystem, mcm)
 
-# ode_simplified = structural_simplify(odesys)
-# ode_prob = ODEProblem(ode_simplified, u₀, tspan, params; jac=true, sparse=true)
+odesys = convert(ODESystem, mcm; combinatoric_ratelaws=false)
+ode_simplified = structural_simplify(odesys)
+ode_prob = ODEProblem(ode_simplified, u₀, tspan, params; jac=true, sparse=true)
+# ode_prob = ODEProblem(odesys, u₀, tspan, params; jac=true, sparse=true)
 
-ode_prob = ODEProblem(odesys, u₀, tspan, params; jac=true, sparse=true)
 
 sol = solve(ode_prob, saveat=15)
+
+
+using Plots
+plot(sol)
+
+
 
 
