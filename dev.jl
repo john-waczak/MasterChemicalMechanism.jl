@@ -13,7 +13,8 @@ import MasterChemicalMechanism: read_fac_file, parse_rxns
 
 #fpath = "./src/data/extracted/full/mcm_subset.fac"
 #fpath = "./src/data/extracted/monoterpines/limonene.fac"
-fpath = "./src/data/extracted/alkanes/methane.fac"
+fpath = "./src/data/extracted/monoterpines/alpha_pinene.fac"
+#fpath = "./src/data/extracted/alkanes/methane.fac"
 ispath(fpath)
 
 fac_dict = read_fac_file(fpath)
@@ -197,13 +198,12 @@ unique_species = [spec for spec ∈ species if spec != nothing]
 length(unique_species)
 @species (X(t))[1:length(unique_species)]  # these will be our concentrations
 
+
 # to replace, we simply look up the idx of the species and use the corresponding array element
 # e.g.
-unique_species[21]
-
-
-idx = findfirst(elem -> elem == "CH3OH", unique_species)
-X[21]
+# unique_species[21]
+# idx = findfirst(elem -> elem == "CH3OH", unique_species)
+# X[21]
 
 
 # 8. Peroxy Radical Sum
@@ -341,7 +341,7 @@ rxns[1]
 @named mcm = ReactionSystem(rxns, t, collect(X), [T, P])
 
 println(parameters(mcm))
-println(reactions(mcm))
+# println(reactions(mcm))
 
 
 # too much memory for tex to handle
@@ -354,25 +354,51 @@ println(reactions(mcm))
 
 using DifferentialEquations
 
-ndays = 3
+ndays = 25
 tspan = (0.0, ndays*24.0*60.0)
 
 # use these initial concentrations and set everything
 # else to 0.0: https://github.com/AtChem/AtChem2/blob/master/model/configuration/initialConcentrations.config
 
+
+
+# init_dict = Dict(
+#     "CH4" => 4.9e+13,
+#     "CO" => 3.6e+12,
+#     "O3" => 5.2e+11,
+#     "NO2" => 2.4e+11,
+# )
+
+m_init = substitute(M, Dict([
+    T => 291.483, # 65 °F
+    P => 1013.2,  # milibars standard pressure
+    kb => 1.380649e−23 # J/K
+]))
+m_init = m_init.val
+nₘ = 10^9 # for ppb
+
+# convert ppb to molecules/cc
 init_dict = Dict(
-    "CH4" => 4.9e+13,
-    "CO" => 3.6e+12,
-    "O3" => 5.2e+11,
-    "NO2" => 2.4e+11
+    "CH4" => 1909.6*m_init/nₘ,
+    "CO" => 100.0*m_init/nₘ,
+    "O3" => 18.0*m_init/nₘ,
+    "NO2" => 100*m_init/nₘ,
+    "APINENE" => 30.0*m_init/nₘ,
+    "H2" => 500*m_init/nₘ,
 )
+
 
 # see this link: https://docs.sciml.ai/Catalyst/stable/example_networks/smoluchowski_coagulation_equation/#smoluchowski_coagulation_equation
 u₀    = zeros(Float64, size(X,1))
 for (key, val) ∈ init_dict
-    println("$(key): $(val)")
-    idx = findfirst(x -> x == key, unique_species)
-    u₀[idx] = val
+    try
+        println("$(key): $(val)")
+        idx = findfirst(x -> x == key, unique_species)
+        println("idx: ", idx)
+        u₀[idx] = val
+    catch e
+        println(e)
+    end
 end
 u₀map = Pair.(collect(X), u₀)   # map variable to its initial value
 
@@ -387,17 +413,36 @@ params = (
 # let's convert the model into an ODESystem so we can simplify
 
 odesys = convert(ODESystem, mcm; combinatoric_ratelaws=false)
-ode_simplified = structural_simplify(odesys)
-ode_prob = ODEProblem(ode_simplified, u₀, tspan, params; jac=true, sparse=true)
+#ode_simplified = structural_simplify(odesys)
+#ode_prob = ODEProblem(ode_simplified, u₀, tspan, params; jac=true, sparse=true)
 # ode_prob = ODEProblem(odesys, u₀, tspan, params; jac=true, sparse=true)
+ode_prob = ODEProblem(odesys, u₀, tspan, params; sparse=true)
 
 
 sol = solve(ode_prob, saveat=15)
 
 
+# got it to work for the limonene system
+println(numspecies(mcm))  # 3490
+println(numreactions(mcm)) # 1163
+
+println(unique_species)
+
 using Plots
-plot(sol)
+
+unique_species
+
+speciesiwant = ["CO", "O3", "NO2", "APINENE", "H2"]
+idxs= [findfirst(x->x==spec, unique_species) for spec ∈ speciesiwant]
+
+p = plot()
+i = 1
+for idx ∈ idxs
+    plot!(p, sol.t ./ (60*24), sol[idx, :] .* (nₘ/m_init), label=speciesiwant[i], xlabel="t [days]", ylabel="concentration [ppb]", legend=:outertopright)
+    i += 1
+end
 
 
+display(p)
 
 
