@@ -4,20 +4,13 @@ using ModelingToolkit
 using Catalyst
 using SolarGeometry
 
-# 1. parse .fac file for text with reaction info
 include("parse_fac.jl")
-
-# 2. establish simulation parameters, variables
 include("config.jl")
-
-# 3. establish constants
-include("constants.jl")  # e.g. boltzman constant
-
-# 4. define relevant atmospheric functions
-include("atmospheric_functions.jl")
-
-# 5. generate reaction rate expressions
-#include("reaction_rates.jl")
+include("reaction_rates.jl")
+include("species.jl")
+include("ro2.jl")
+include("photolysis.jl")
+include("mechanism.jl")
 
 # 6. define photolysis rates
 # include("photolysis.jl")

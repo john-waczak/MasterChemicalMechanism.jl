@@ -25,3 +25,15 @@ end
 # see this link for sample mechanism to run tests against:
 # https://github.com/AtChem/AtChem2/blob/master/tests/model_tests/env_model_2/env_model_2.fac
 
+
+# test_rxn_rate = reactions[1][end]
+# rxnrate_to_expression(test_rxn_rate)
+
+# test_species = ["H2O", "H2O", "N2O"]
+# test_stoich = [2.0, 1.0, 1.0]
+
+# out_species, out_stoich = remove_duplicates(test_species, test_stoich)
+
+# @assert out_species == unique(test_species)
+# @assert all(out_stoich .== [3.0, 1.0])
+
