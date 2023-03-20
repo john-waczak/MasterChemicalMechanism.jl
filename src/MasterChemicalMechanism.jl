@@ -10,21 +10,8 @@ include("reaction_rates.jl")
 include("species.jl")
 include("ro2.jl")
 include("photolysis.jl")
+include("rrates_mechanism.jl")
 include("mechanism.jl")
-
-# 6. define photolysis rates
-# include("photolysis.jl")
-
-# 7. generate reaction_network via catalyst
-# include("mechanism.jl")
-
-
-# include("catalyst_model.jl")
-# include("simulate.jl")
-
-
-#we want to create a function that takes the .fac file and spits out a julia file defining the entire mechanism via catalyst, modelingtoolkit. If needed, we can copy the files
-
 
 end
 

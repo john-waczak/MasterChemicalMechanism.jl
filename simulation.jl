@@ -20,17 +20,18 @@ using BenchmarkTools
 # fpath = "./src/data/extracted/alkanes/methane.fac"
 # fpath = "./src/data/extracted/alkanes/meth_eth_prop_but.fac"
 # fpath = "./src/data/extracted/monoterpines/alpha_pinene.fac"
-# fpath = "./src/data/extracted/monoterpines/limonene.fac"
+#fpath = "./src/data/extracted/monoterpines/limonene.fac"
 # fpath = "./src/data/extracted/monoterpines/monoterpines.fac"
 # fpath = "./src/data/extracted/alkanes/all_alkanes.fac"
 fpath = "./src/data/extracted/full/mcm_subset.fac"
-model_name = "methane"
+# fpath = "./src/data/extracted/no_terpenes.fac"
+#fpath = "./src/data/extracted/through_but.fac"
+model_name = "mcm_full"
 @assert ispath(fpath)  == true
 
 
 # 1. constants
 # 2. reaction rates
-
 fac_dict = read_fac_file(fpath)
 #rxns = fac_dict["reaction_definitions"]
 #species, reactions = parse_rxns(rxns)
@@ -41,7 +42,6 @@ generate_species(fac_dict, model_name)
 generate_ro2(fac_dict, model_name)
 generate_photolysis_mcm(fac_dict, model_name)
 generate_mechanism(fac_dict, model_name)
-
 
 include("./model/$(model_name)/config.jl")  # <-- we need to update to automatically generate this
 include("./model/$(model_name)/rrates.jl")
@@ -60,7 +60,7 @@ include("./model/$(model_name)/mechanism.jl")
 # Running the simulation
 # ----------------------------------------------------------------
 
-ndays = 2
+#ndays = 2
 tspan = (0.0, 60.0)
 # use these initial concentrations and set everything
 # else to 0.0: https://github.com/AtChem/AtChem2/blob/master/model/configuration/initialConcentrations.config
@@ -114,33 +114,50 @@ params = (
 
 # let's convert the model into an ODESystem so we can simplify
 
-odesys = convert(ODESystem, mechanism; combinatoric_ratelaws=false)
-#ode_simplified = structural_simplify(odesys)
-#ode_prob = ODEProblem(ode_simplified, u₀, tspan, params; jac=true, sparse=true)
-# ode_prob = ODEProblem(odesys, u₀, tspan, params; jac=true, sparse=true)
-#ode_prob = ODEProblem(odesys, u₀, tspan, params; sparse=true)
-ode_prob = ODEProblem(odesys, u₀, tspan, params)
+odesys = @time convert(ODESystem, mechanism; combinatoric_ratelaws=false)
+ode_prob = @time ODEProblem(odesys, u₀, tspan, params)  # 600.706338 seconds
+
+
+fieldnames(typeof(ode_prob))
+
+du = copy(u₀)
+ode_prob.f(du, u₀, (291.483, 1013.2), 0.0)
+
 
 # sol = solve(ode_prob, saveat=15);
 println(fpath)
 println("num species: ", numspecies(mechanism))  # 3490
 println("num reactions: ", numreactions(mechanism)) # 1163
 
-@btime solve(ode_prob;
-             alg_hints=[:stiff],
-             dense=false,
-             saveat=15,
-             reltol=1e-6,
-             )
+# @btime solve(ode_prob;
+#             alg_hints=[:stiff],
+#             dense=false,
+#             saveat=15,
+#             reltol=1e-6,
+#             )
 
 # solve(ode_prob;
 #       alg_hints=[:stiff],
 #       dense=false,
-#       saveat=15,
+#       saveat=15.0,
+#       save_on=false,  # nuclear option
 #       reltol=1e-6,
 #       )
 
+integrator = init(ode_prob,
+                  TRBDF2();
+#                  alg_hints=[:stiff],
+                  dense=false,
+                  save_everystep=false,
+                  saveat=15.0,
+#                  save_on=false,  # nuclear option
+                  reltol=1e-6,
 
+                  )
+
+step!(integrator)
+
+varinfo()
 
 
 #using LSODA

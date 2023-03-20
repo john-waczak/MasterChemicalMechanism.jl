@@ -64,7 +64,7 @@ J_61(t) =7.537E-04*cosx(t)^(0.499)*exp(-1.0*0.266*secx(t))
 """
 
 
-function generate_photolysis_mcm(fac_dict::Dict, model_name::String="mcm")
+function generate_photolysis_mcm(fac_dict::Dict; model_name::String="mcm")
     # if file already exists, delete it
     outpath = "./model/$(model_name)/photolysis.jl"
     if isfile(outpath)

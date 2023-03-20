@@ -1,4 +1,4 @@
-config_string = """
+config_string_old = """
 
 const latitude = 32.949589 # degrees
 const longitude = -96.823666  # degrees
@@ -35,7 +35,42 @@ H2O = 0.004 * M # ^ suggest average of 0.4% but between 0-4% globally
 """
 
 
-function generate_config(fac_dict::Dict, model_name::String="mcm")
+config_string = """
+
+
+const latitude = 32.949589 # degrees
+const longitude = -96.823666  # degrees
+const altitude = 0.0
+const t_start = DateTime(2023, 3, 7, 6, 0, 0)
+
+const kb = 1.380649e−23 # J/K
+
+function M(T,P)
+    press_pa = 100.0 * P  # 100 Pa / mbar
+    # 1 Pa = 1 J / m3. We want cm^3 so convert:
+    press_final = press_pa * 1.0e-6 # there are (10^2)^3 = 10^6 cm³/m³
+    Mout = press_final/(kb*T)  # we now have a stand in for number density in molecules/cm³jk
+    return Mout
+end
+
+O2(T,P) = 0.2095 * M(T,P)
+N2(T,P) = 0.7808 * M(T,P)
+H2O(T,P) = 0.004 * M(T,P)
+
+# test it out... These will be our parameters later
+params = (
+    T = 291.483, # 65 °F
+    P = 1013.2  # milibars standard pressure
+)
+
+dt = 15.0  # minutes
+tspan = (0.0, 60.0)
+
+"""
+
+
+
+function generate_config(fac_dict::Dict; model_name::String="mcm")
     # if file already exists, delete it
     outpath = "./model/$(model_name)/config.jl"
     if isfile(outpath)
