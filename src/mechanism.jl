@@ -160,6 +160,8 @@ function generate_ode_f(fac_dict::Dict, idx_ro2; model_name::String="mcm", param
         rm(outpath)
     end
 
+    outpath2 = "./model/$(model_name)/ode_jac.j"
+
     if !isdir("./model/$(model_name)")
         mkdir("./model/$(model_name)")
     end
@@ -168,6 +170,7 @@ function generate_ode_f(fac_dict::Dict, idx_ro2; model_name::String="mcm", param
     unique_species = [spec for spec ∈ species if spec != nothing]
 
     du = ["du[$(i)] = " for i ∈ 1:length(unique_species)]
+    # J = ["J[$(i),$(j)] = " for i ∈ 1:length(unique_species), j∈1:length(unique_species)]
 
     # loop through reactions and add terms to rhs
     for i ∈ 1:length(reactions)
@@ -213,6 +216,19 @@ function generate_ode_f(fac_dict::Dict, idx_ro2; model_name::String="mcm", param
                 du[idxs_products[j]] *= " + $(products_stoich[j])*$(rᵢ)"
             end
         end
+
+        # # update jacobian with reactants
+        # k = "k_$(i)($(param_names), RO2, t)"
+        # for ℓ ∈ 1:length(idxs_reactants)
+        #     # generate indices of other terms
+        #     for j ∈ 1:lenth(idx_reactants)
+                
+        #         J[idxs_reactants[ℓ], idxs_reactants[j]]
+        #     end
+        # end
+
+A = rand(Float64, 5000,5000)
+varinfo()
     end
 
     # write the array of reaction to the file

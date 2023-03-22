@@ -82,6 +82,4 @@ integrator.sol
 integrator.t
 integrator.u
 
-# this is perfect! Let's make sure SciMLSensativity works with this method
-using Zygote, SciMLSensitivity
 

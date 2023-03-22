@@ -11,6 +11,7 @@ include("species.jl")
 include("ro2.jl")
 include("photolysis.jl")
 include("rrates_mechanism.jl")
+include("initialize.jl")
 include("mechanism.jl")
 
 end
