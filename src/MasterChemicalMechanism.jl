@@ -1,7 +1,5 @@
 module MasterChemicalMechanism
 
-using ModelingToolkit
-using Catalyst
 using SolarGeometry
 
 include("parse_fac.jl")
@@ -12,7 +10,22 @@ include("ro2.jl")
 include("photolysis.jl")
 include("rrates_mechanism.jl")
 include("initialize.jl")
+include("stoich_mats.jl")
 include("mechanism.jl")
+
+
+export read_fac_file, parse_rxns
+export generate_config
+export generate_rrates
+export generate_species
+export generate_stoich_mat, get_sparse_mat
+export generate_ro2
+export generate_photolysis_mcm
+export generate_rrates_mechanism
+export generate_ode_f
+export generate_init_dict
+
+
 
 end
 

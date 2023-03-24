@@ -31,7 +31,6 @@ H2O = 0.004 * M # ^ suggest average of 0.4% but between 0-4% globally
 # e.g. this link:https: //physics.stackexchange.com/questions/596684/what-is-the-formula-to-calculate-the-amount-of-water-in-the-air-at-a-certain-tem
 
 
-
 """
 
 

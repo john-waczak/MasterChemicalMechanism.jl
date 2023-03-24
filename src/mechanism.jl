@@ -121,33 +121,33 @@
 
 
 
-function remove_duplicates(species, stoich)
-    unique_species = unique(species)
+# function remove_duplicates(species, stoich)
+#     unique_species = unique(species)
 
-    out_species = []
-    out_stoich = []
-    for uspec ∈ unique_species
-        idxs = findall(x -> x == uspec, species)
-        push!(out_species, uspec)
-        push!(out_stoich, sum(stoich[idxs]))
-    end
-    return out_species, out_stoich
-end
+#     out_species = []
+#     out_stoich = []
+#     for uspec ∈ unique_species
+#         idxs = findall(x -> x == uspec, species)
+#         push!(out_species, uspec)
+#         push!(out_stoich, sum(stoich[idxs]))
+#     end
+#     return out_species, out_stoich
+# end
 
 
-function get_species_idxs(species, unique_species)
-    idxs = []
-    for spec ∈ species
-        idx = findfirst(x -> x == spec, unique_species)
-        push!(idxs, idx)
-    end
+# function get_species_idxs(species, unique_species)
+#     idxs = []
+#     for spec ∈ species
+#         idx = findfirst(x -> x == spec, unique_species)
+#         push!(idxs, idx)
+#     end
 
-    if idxs == [nothing]
-        idxs = nothing
-    end
+#     if idxs == [nothing]
+#         idxs = nothing
+#     end
 
-    return idxs
-end
+#     return idxs
+# end
 
 
 function generate_ode_f(fac_dict::Dict, idx_ro2; model_name::String="mcm", params::NamedTuple = (T=291.483, P=1013.2))
@@ -226,9 +226,6 @@ function generate_ode_f(fac_dict::Dict, idx_ro2; model_name::String="mcm", param
         #         J[idxs_reactants[ℓ], idxs_reactants[j]]
         #     end
         # end
-
-A = rand(Float64, 5000,5000)
-varinfo()
     end
 
     # write the array of reaction to the file
