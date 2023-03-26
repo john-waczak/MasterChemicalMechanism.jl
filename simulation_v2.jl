@@ -8,19 +8,22 @@ using Statistics
 using SparseArrays
 using LinearAlgebra
 
+# using ModelingToolkit
+
+
 using MasterChemicalMechanism
 
-# fpath = "./src/data/extracted/alkanes/methane.fac"
+fpath = "./src/data/extracted/alkanes/methane.fac"
 # fpath = "./src/data/extracted/alkanes/meth_eth_prop_but.fac"
 # fpath = "./src/data/extracted/monoterpines/alpha_pinene.fac"
-fpath = "./src/data/extracted/monoterpines/limonene.fac"
+# fpath = "./src/data/extracted/monoterpines/limonene.fac"
 # fpath = "./src/data/extracted/monoterpines/monoterpines.fac"
 # fpath = "./src/data/extracted/alkanes/all_alkanes.fac"
 # fpath = "./src/data/extracted/full/mcm_subset.fac"
 # fpath = "./src/data/extracted/no_terpenes.fac"
 # fpath = "./src/data/extracted/through_but.fac"
 
-model_name = "limonene"
+model_name = "methane"
 @assert ispath(fpath)  == true
 
 fac_dict = read_fac_file(fpath)
@@ -53,8 +56,17 @@ include("./model/$(model_name)/photolysis.jl")
 generate_stoich_mat(fac_dict; model_name=model_name)
 # overall, reactants, reactant_indicator
 N = get_sparse_mat(mat_name="N", model_name=model_name)
+Nrows = rowvals(N)
+Nvals = nonzeros(N)
+
 R = get_sparse_mat(mat_name="R", model_name=model_name)
-R_idxs = [findall(>(0), R[:,j]) for j ∈ axes(R,2)]
+Rrows = rowvals(R)
+Rvals = nonzeros(R)
+
+# we should make sure this isn't a union type
+Vmat = copy(float(R)')
+
+# R_idxs = [findall(>(0), R[:,j]) for j ∈ axes(R,2)]
 
 
 generate_rrates_mechanism(fac_dict, rate_list; model_name=model_name, params=params)
@@ -109,53 +121,66 @@ end
 
 # combine parameters into one long tuple
 RO2 = sum(u₀[idx_ro2])
-ps = (params.T, params.P, N, R, R_idxs, idx_ro2, RO2, k_rates, v, Jtemp)
+#ps = (params.T, params.P, N, R, R_idxs, idx_ro2, RO2, k_rates, v, Jtemp)
+ps = (params.T, params.P, N, R, Rrows, Rvals, idx_ro2, RO2, k_rates, v, Vmat)
 
 
 n_days = 1
 tspan = (0.0, n_days*24.0*60.0)
 #tspan = (0.0, 15.0)
 tol = 1e-6
-#ode_prob = @time ODEProblem(mcm!, u₀, tspan, ps)  # 600.706338 seconds
-ode_prob = @time ODEProblem{true, SciMLBase.FullSpecialize}(f!, u₀, tspan, ps)  # 600.706338 seconds
+
+ode_prob = @time ODEProblem{true, SciMLBase.FullSpecialize}(f!, u₀, tspan, ps)
 
 # take a sample step to make sure everything is pre-compiled all nice
 u₀
 du = copy(u₀)
-@btime f!(du, u₀, ps, 0.0)
 f!(du, u₀, ps, 0.0)
+@benchmark f!(du, u₀, ps, 0.0)
 
-Jtest = zeros(size(R,1), size(R,1))
-@btime J!(Jtest, u₀, ps, 0.0)
+# # try to utilize modellingtoolkit to determine the sparse jacobian
+# sys = modelingtoolkitize(ode_prob);
+# ode_prob_2 = ODEProblem(sys, Pair[], tspan, jac=true, sparse=true)
+
+
+
+
+
+# Jtest = zeros(size(R,1), size(R,1))
+# @btime Jac!(Jtest, u₀, ps, 0.0)
 
 # now that we've evaluated the jacobian, generate a sparse prototype to use:
-J!(Jtest, u₀, ps, 0.0)
+Jtest = zeros(size(R,1), size(R,1))
+Jac!(Jtest, u₀, ps, 0.0)
 JP = sparse(Jtest)
 JP .= 0.0
 
+
+# @btime Jac!(JP, u₀, ps, 0.0)
+
+
+
+
 # set up second odeproblem for comparison
-fun = ODEFunction(f!; jac=J!, jac_prototype=JP)
+#fun = ODEFunction(f!; jac=Jac!, jac_prototype=JP)
+fun = ODEFunction(f!; jac_prototype=JP)
 ode_prob_2 = @time ODEProblem{true, SciMLBase.FullSpecialize}(fun, u₀, tspan, ps)
 
+@benchmark solve(
+    ode_prob,
+    CVODE_BDF();
+    saveat=15.0,
+    reltol=tol,
+    abstol=tol,
+)
 
-
-# @benchmark solve(
-#     ode_prob,
-#     CVODE_BDF();
-#     saveat=15.0,
-#     reltol=tol,
-#     abstol=tol,
-# )
-
-# @benchmark solve(
-#     ode_prob_2,
-#     CVODE_BDF();
-#     saveat=15.0,
-#     reltol=tol,
-#     abstol=tol,
-# )
-
-
+@benchmark solve(
+    ode_prob_2,
+    CVODE_BDF();
+    saveat=15.0,
+    reltol=tol,
+    abstol=tol,
+)
 
 
 sol = @time solve(

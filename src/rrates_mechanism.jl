@@ -74,40 +74,33 @@ end
 # NOTE: we can probably do some parallelization here...
 
 compute_v = """
-    Threads.@threads for j ∈ axes(R,2)
+    @inbounds for j ∈ axes(R,2)
         v[j] = k_rates[j]
-        for i ∈ axes(R,1)
-            if R[i,j] != 0
-                v[j] *= u[i]^R[i,j]
-            end
+        @inbounds for i ∈ nzrange(R, j)
+            v[j] *= u[Rrows[i]]^Rvals[i]
         end
     end
 """
 
 
 update_J = """
-    # reset to zero to start
-    J .= 0.0
-
-    Threads.@threads for m ∈ axes(R,1)
-        for n ∈ axes(R,1)
-            # loop over reactions to form sum
-            for j ∈ axes(R,2)
-                if n ∈ R_idxs[j]
-                    Jtemp = N[m,j]*k_rates[j]
-                    for idx_reactant ∈ R_idxs[j]
-                        if idx_reactant == n
-                            Jtemp *= R[n,j]*u[n]^(R[n,j]-1)
-                        else
-                            Jtemp *= u[idx_reactant]^R[idx_reactant,j]
-                        end
-
-                    end
-                    J[m,n] += Jtemp
+    # update Vmat
+    @inbounds for j ∈ axes(R,2)
+        @inbounds for n ∈ nzrange(R,j)
+            Vmat[j,Rrows[n]] = k_rates[j]
+            @inbounds for i ∈ nzrange(R,j)
+                if Rrows[i] == Rrows[n]
+                    Vmat[j, Rrows[n]] *= Rvals[i]*u[Rrows[i]]^(Rvals[i]-1)
+                else
+                    Vmat[j, Rrows[n]] *= u[Rrows[i]]^Rvals[i]
                 end
             end
         end
     end
+
+    # update J
+    mul!(Jac, N, Vmat)
+
 """
 
 
@@ -131,7 +124,7 @@ function generate_rrates_mechanism(fac_dict, rate_list; model_name::String="mcm"
         # write the RHS function for the odes
         println(f, "function f!(du, u, p, t)")
         println(f, "\t\t# unpack parameters")
-        println(f, "\t\t$(param_names), N, R, R_idxs, idx_ro2, RO2, k_rates, v, Jtemp = p")
+        println(f, "\t\t$(param_names), N, R, Rrows, Rvals, idx_ro2, RO2, k_rates, v, Vmat = p")
 
         println(f, "\n\t\t# for peroxy-radical sum")
         println(f, "\t\tRO2 = sum(u[idx_ro2])")
@@ -154,9 +147,9 @@ function generate_rrates_mechanism(fac_dict, rate_list; model_name::String="mcm"
 
 
         # write the Jacobian of the RHS
-        println(f, "\n\nfunction J!(J,u,p,t)")
+        println(f, "\n\nfunction Jac!(Jac,u,p,t)")
         println(f,"\t\t# unpack parameters")
-	      println(f, "\t\tT, P, N, R, R_idxs, idx_ro2, RO2, k_rates, v, Jtemp = p")
+        println(f, "\t\t$(param_names), N, R, Rrows, Rvals, idx_ro2, RO2, k_rates, v, Vmat = p")
         println(f, "\t\t# for peroxy-radical sum")
         println(f, "\t\tRO2 = sum(u[idx_ro2])")
         println(f,"\n\n\t\t# update reaction rate coefficients\n")
@@ -166,10 +159,10 @@ function generate_rrates_mechanism(fac_dict, rate_list; model_name::String="mcm"
             println(f, rrate_string)
         end
 
-        println(f, "\n\t\t# update jacobian\n")
         println(f, update_J)
         println(f, "end")
     end
 
 end
+
 
