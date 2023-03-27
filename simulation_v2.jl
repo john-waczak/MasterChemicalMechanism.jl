@@ -62,11 +62,7 @@ Nvals = nonzeros(N)
 R = get_sparse_mat(mat_name="R", model_name=model_name)
 Rrows = rowvals(R)
 Rvals = nonzeros(R)
-
-# we should make sure this isn't a union type
-Vmat = copy(float(R)')
-
-# R_idxs = [findall(>(0), R[:,j]) for j ∈ axes(R,2)]
+Vmat = copy(float(R)') # we should make sure this isn't a union type
 
 
 generate_rrates_mechanism(fac_dict, rate_list; model_name=model_name, params=params)
@@ -78,11 +74,6 @@ Jtemp = 0.0
 size(R)
 idxs_reactants = findall(>(0), R[:,1])
 
-# generate_ode_f(fac_dict, idx_ro2; model_name=model_name, params=params)
-# include("./model/$(model_name)/ode_f.jl")
-# # include("./model/$(model_name)/ode_jac.jl")
-
-
 # compute conversion to ppb from molecules/cc
 m_init = M(params.T, params.P)
 nₘ = 10^9 # for ppb
@@ -92,21 +83,7 @@ init_path = "./src/data/initial_concentrations/full.txt"
 isfile(init_path)
 init_dict = generate_init_dict(init_path, m_init)
 
-
-# # convert ppb to molecules/cc
-# init_dict = Dict(
-#     "CH4" => 1909.6*m_init/nₘ,
-#     "CO" => 100.0*m_init/nₘ,
-#     "O3" => 18.0*m_init/nₘ,
-#     "NO2" => 100*m_init/nₘ,
-#     "APINENE" => 30.0*m_init/nₘ,
-#     "H2" => 500*m_init/nₘ,
-# )
-
-
-# see this link: https://docs.sciml.ai/Catalyst/stable/example_networks/smoluchowski_coagulation_equation/#smoluchowski_coagulation_equation
 u₀    = zeros(Float64, size(species))
-
 
 for (key, val) ∈ init_dict
     try
@@ -121,49 +98,100 @@ end
 
 # combine parameters into one long tuple
 RO2 = sum(u₀[idx_ro2])
-#ps = (params.T, params.P, N, R, R_idxs, idx_ro2, RO2, k_rates, v, Jtemp)
-ps = (params.T, params.P, N, R, Rrows, Rvals, idx_ro2, RO2, k_rates, v, Vmat)
 
-
-n_days = 1
+n_days = 5
 tspan = (0.0, n_days*24.0*60.0)
 #tspan = (0.0, 15.0)
 tol = 1e-6
 
-ode_prob = @time ODEProblem{true, SciMLBase.FullSpecialize}(f!, u₀, tspan, ps)
+
+
+# -----------------------------------------
+# generate derivative terms
+# -----------------------------------------
+derivative_terms = get_derivative_terms(N)
+reaction_terms = get_reaction_terms(R)
+
+derivative_terms
+reaction_terms
+# -----------------------------------------
+# copute jacobian terms
+# -----------------------------------------
+
+jac_terms = JacobianTerms[]
+Jprototype = zeros(Float64, size(R,1), size(R,1))
+
+for k ∈ axes(R,2)
+    for j ∈ axes(R,1)
+        for i ∈ axes(R,1)
+            if N[i,k] != 0 && R[j,k] > 0
+                # isinJ[i,j,k] = 1
+                Jprototype[i,j] = 1.0
+                println("$(i), $(j), $(k)")
+            end
+        end
+    end
+end
+
+Jprototype = sparse(Jprototype)
+
+# loop over all (i,j) pairs in Jprototype
+
+Jprot_rows = rowvals(Jprototype)
+Jprot_vals = nonzeros(Jprototype)
+
+for j ∈ axes(Jprototype, 1)
+    for i_row ∈ nzrange(Jprototype, j)
+        i = Jprot_rows[i_row]
+        rxn_terms = ReactionTerms[]
+        for k ∈ axes(R,2)
+            if N[i,k] != 0 && R[j,k] > 0
+                reaction_indices = findall(x -> x > 0, R[:,k])
+                indices_out = [j]
+                # add the rest of the indices so it's sorted with j first
+                for idx_rxn ∈ reaction_indices
+                    if idx_rxn != j
+                        push!(indices_out, idx_rxn)
+                    end
+                end
+
+                push!(rxn_terms, ReactionTerms(k, indices_out))
+            end
+        end
+        push!(jac_terms, JacobianTerms(i,j,rxn_terms))
+    end
+end
+
+size(derivative_terms)
+size(reaction_terms)
+size(jac_terms)
+
+reaction_terms[1]
+
+du_temp = 0.0
+Jtemp = 0.0
+ps = (params.T, params.P, N, R, derivative_terms, reaction_terms, idx_ro2, RO2, k_rates, du_temp, jac_terms, Jtemp)
 
 # take a sample step to make sure everything is pre-compiled all nice
 u₀
 du = copy(u₀)
 f!(du, u₀, ps, 0.0)
+du
 @benchmark f!(du, u₀, ps, 0.0)
 
-# # try to utilize modellingtoolkit to determine the sparse jacobian
-# sys = modelingtoolkitize(ode_prob);
-# ode_prob_2 = ODEProblem(sys, Pair[], tspan, jac=true, sparse=true)
-
-
-
-
-
-# Jtest = zeros(size(R,1), size(R,1))
-# @btime Jac!(Jtest, u₀, ps, 0.0)
-
-# now that we've evaluated the jacobian, generate a sparse prototype to use:
 Jtest = zeros(size(R,1), size(R,1))
 Jac!(Jtest, u₀, ps, 0.0)
-JP = sparse(Jtest)
-JP .= 0.0
+Jtest
 
+@benchmark Jac!(Jtest, u₀, ps, 0.0)
 
-# @btime Jac!(JP, u₀, ps, 0.0)
-
-
+# println("% sparsity: ", 100*length(nonzeros(Jtot))/(size(Jtot,1)^2))
 
 
 # set up second odeproblem for comparison
 #fun = ODEFunction(f!; jac=Jac!, jac_prototype=JP)
-fun = ODEFunction(f!; jac_prototype=JP)
+ode_prob = @time ODEProblem{true, SciMLBase.FullSpecialize}(f!, u₀, tspan, ps)
+fun = ODEFunction(f!; jac=Jac!, jac_prototype=Jprototype)
 ode_prob_2 = @time ODEProblem{true, SciMLBase.FullSpecialize}(fun, u₀, tspan, ps)
 
 @benchmark solve(
@@ -198,6 +226,7 @@ sol2 = @time solve(
     reltol=tol,
     abstol=tol,
 );
+
 
 
 
@@ -240,7 +269,6 @@ for idx ∈ idxs
 
     i += 1
 end
-
 
 p2 = plot()
 i = 1

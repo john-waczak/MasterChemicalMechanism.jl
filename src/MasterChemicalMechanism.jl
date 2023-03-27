@@ -13,6 +13,7 @@ include("initialize.jl")
 include("stoich_mats.jl")
 include("mechanism.jl")
 
+include("structs.jl")
 
 export read_fac_file, parse_rxns
 export generate_config
@@ -25,6 +26,11 @@ export generate_rrates_mechanism
 export generate_ode_f
 export generate_init_dict
 
+export DerivativeTerms
+export get_derivative_terms
+export ReactionTerms
+export get_reaction_terms
+export JacobianTerms
 
 
 end

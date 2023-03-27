@@ -73,33 +73,72 @@ end
 
 # NOTE: we can probably do some parallelization here...
 
+# compute_v = """
+#     @inbounds for j ∈ axes(R,2)
+#         v[j] = k_rates[j]
+#         @inbounds for i ∈ nzrange(R, j)
+#             v[j] *= u[Rrows[i]]^Rvals[i]
+#         end
+#     end
+# """
+
+
 compute_v = """
-    @inbounds for j ∈ axes(R,2)
-        v[j] = k_rates[j]
-        @inbounds for i ∈ nzrange(R, j)
-            v[j] *= u[Rrows[i]]^Rvals[i]
+
+    du .= 0.0
+
+    for i ∈ axes(R,1)
+        for k ∈ derivative_terms[i].ks
+            du_temp = N[i,k]*k_rates[k]
+            for ℓ ∈ reaction_terms[k].is
+                du_temp *= u[ℓ]^R[ℓ,k]
+            end
+            du[i] += du_temp
         end
     end
+
+
 """
 
 
+
+# update_J = """
+#     # update Vmat
+#     @inbounds for j ∈ axes(R,2)
+#         @inbounds for n ∈ nzrange(R,j)
+#             Vmat[j,Rrows[n]] = k_rates[j]
+#             @inbounds for i ∈ nzrange(R,j)
+#                 if Rrows[i] == Rrows[n]
+#                     Vmat[j, Rrows[n]] *= Rvals[i]*u[Rrows[i]]^(Rvals[i]-1)
+#                 else
+#                     Vmat[j, Rrows[n]] *= u[Rrows[i]]^Rvals[i]
+#                 end
+#             end
+#         end
+#     end
+
+#     # update J
+#     mul!(Jac, N, Vmat)
+
+# """
+
 update_J = """
-    # update Vmat
-    @inbounds for j ∈ axes(R,2)
-        @inbounds for n ∈ nzrange(R,j)
-            Vmat[j,Rrows[n]] = k_rates[j]
-            @inbounds for i ∈ nzrange(R,j)
-                if Rrows[i] == Rrows[n]
-                    Vmat[j, Rrows[n]] *= Rvals[i]*u[Rrows[i]]^(Rvals[i]-1)
-                else
-                    Vmat[j, Rrows[n]] *= u[Rrows[i]]^Rvals[i]
-                end
+
+    for jac_term ∈ jac_terms
+        i = jac_term.i
+        j = jac_term.j
+        rxn_terms = jac_term.ks
+
+        Jac[i,j] = 0
+        for rxn_term ∈ rxn_terms
+            Jtemp = N[i,j] * k_rates[rxn_term.k] * R[j,rxn_term.k] * u[j]^(R[j,rxn_term.k]-1)
+            for n ∈ rxn_term.is[2:end]
+                Jtemp *= u[n]^R[n,rxn_term.k]
             end
+            Jac[i,j] += Jtemp
         end
     end
 
-    # update J
-    mul!(Jac, N, Vmat)
 
 """
 
@@ -124,8 +163,9 @@ function generate_rrates_mechanism(fac_dict, rate_list; model_name::String="mcm"
         # write the RHS function for the odes
         println(f, "function f!(du, u, p, t)")
         println(f, "\t\t# unpack parameters")
-        println(f, "\t\t$(param_names), N, R, Rrows, Rvals, idx_ro2, RO2, k_rates, v, Vmat = p")
-
+        # println(f, "\t\t$(param_names), N, R, Rrows, Rvals, idx_ro2, RO2, k_rates, v, Vmat = p")
+        # println(f, "\t\t$(param_names), N, R, derivative_terms, reaction_terms, idx_ro2, RO2, k_rates, du_temp = p")
+        println(f, "\t\t$(param_names), N, R, derivative_terms, reaction_terms, idx_ro2, RO2, k_rates, du_temp, jac_terms, Jtemp = p")
         println(f, "\n\t\t# for peroxy-radical sum")
         println(f, "\t\tRO2 = sum(u[idx_ro2])")
 
@@ -139,8 +179,8 @@ function generate_rrates_mechanism(fac_dict, rate_list; model_name::String="mcm"
         println(f, "\n\t\t# compute reaction rate vector")
         println(f, compute_v)
 
-        println(f, "\t\t# update RHS with stoich matrix")
-        println(f, "\t\tmul!(du, N, v)")
+        #println(f, "\t\t# update RHS with stoich matrix")
+        #println(f, "\t\tmul!(du, N, v)")
 
         println(f, "end")
 
@@ -149,7 +189,8 @@ function generate_rrates_mechanism(fac_dict, rate_list; model_name::String="mcm"
         # write the Jacobian of the RHS
         println(f, "\n\nfunction Jac!(Jac,u,p,t)")
         println(f,"\t\t# unpack parameters")
-        println(f, "\t\t$(param_names), N, R, Rrows, Rvals, idx_ro2, RO2, k_rates, v, Vmat = p")
+        #println(f, "\t\t$(param_names), N, R, Rrows, Rvals, idx_ro2, RO2, k_rates, v, Vmat = p")
+        println(f, "\t\t$(param_names), N, R, derivative_terms, reaction_terms, idx_ro2, RO2, k_rates, du_temp, jac_terms, Jtemp = p")
         println(f, "\t\t# for peroxy-radical sum")
         println(f, "\t\tRO2 = sum(u[idx_ro2])")
         println(f,"\n\n\t\t# update reaction rate coefficients\n")
