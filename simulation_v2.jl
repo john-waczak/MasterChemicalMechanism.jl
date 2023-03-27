@@ -13,17 +13,17 @@ using LinearAlgebra
 
 using MasterChemicalMechanism
 
-fpath = "./src/data/extracted/alkanes/methane.fac"
+# fpath = "./src/data/extracted/alkanes/methane.fac"
 # fpath = "./src/data/extracted/alkanes/meth_eth_prop_but.fac"
 # fpath = "./src/data/extracted/monoterpines/alpha_pinene.fac"
 # fpath = "./src/data/extracted/monoterpines/limonene.fac"
 # fpath = "./src/data/extracted/monoterpines/monoterpines.fac"
 # fpath = "./src/data/extracted/alkanes/all_alkanes.fac"
-# fpath = "./src/data/extracted/full/mcm_subset.fac"
+fpath = "./src/data/extracted/full/mcm_subset.fac"
 # fpath = "./src/data/extracted/no_terpenes.fac"
 # fpath = "./src/data/extracted/through_but.fac"
 
-model_name = "methane"
+model_name = "mcm_full"
 @assert ispath(fpath)  == true
 
 fac_dict = read_fac_file(fpath)
@@ -121,19 +121,35 @@ reaction_terms
 jac_terms = JacobianTerms[]
 Jprototype = zeros(Float64, size(R,1), size(R,1))
 
-for k ∈ axes(R,2)
+In,Kn,Vn = findnz(N)
+
+for (i,k) ∈ zip(In, Kn)
     for j ∈ axes(R,1)
-        for i ∈ axes(R,1)
-            if N[i,k] != 0 && R[j,k] > 0
-                # isinJ[i,j,k] = 1
-                Jprototype[i,j] = 1.0
-                println("$(i), $(j), $(k)")
-            end
+        if N[i,k] != 0 && R[j,k] > 0
+            # isinJ[i,j,k] = 1
+            Jprototype[i,j] = 1.0
         end
     end
 end
 
+
+# Jprototype2 = zeros(Float64, size(R,1), size(R,1))
+# for k ∈ axes(R,2)
+#     for j ∈ axes(R,1)
+#         for i ∈ axes(N,1)
+#             if N[i,k] != 0 && R[j,k] > 0
+#                 # isinJ[i,j,k] = 1
+#                 Jprototype2[i,j] = 1.0
+#             end
+#         end
+#     end
+# end
+
+# all(Jprototype .== Jprototype2)
+
+
 Jprototype = sparse(Jprototype)
+println("nonzero %: ", 100*length(nonzeros(Jprototype))/(size(Jprototype,1)^2))
 
 # loop over all (i,j) pairs in Jprototype
 
@@ -188,7 +204,6 @@ Jtest
 
 @benchmark Jac!(Jtest, u₀, ps, 0.0)
 
-# println("% sparsity: ", 100*length(nonzeros(Jtot))/(size(Jtot,1)^2))
 
 
 # set up second odeproblem for comparison

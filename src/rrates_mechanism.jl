@@ -87,10 +87,10 @@ compute_v = """
 
     du .= 0.0
 
-    for i ∈ axes(R,1)
-        for k ∈ derivative_terms[i].ks
+    @inbounds for i ∈ axes(R,1)
+        @inbounds for k ∈ derivative_terms[i].ks
             du_temp = N[i,k]*k_rates[k]
-            for ℓ ∈ reaction_terms[k].is
+            @inbounds for ℓ ∈ reaction_terms[k].is
                 du_temp *= u[ℓ]^R[ℓ,k]
             end
             du[i] += du_temp
@@ -124,11 +124,11 @@ compute_v = """
 
 update_J = """
 
-    for jac_term ∈ jac_terms
+    @inbounds for jac_term ∈ jac_terms
         Jac[jac_term.i,jac_term.j] = 0
-        for rxn_term ∈ jac_term.ks
+        @inbounds for rxn_term ∈ jac_term.ks
             Jtemp = N[jac_term.i,rxn_term.k] * k_rates[rxn_term.k] * R[jac_term.j,rxn_term.k] * u[jac_term.j]^(R[jac_term.j,rxn_term.k]-1)
-            for ℓ ∈ rxn_term.is[2:end]
+            @inbounds for ℓ ∈ rxn_term.is[2:end]
                 Jtemp *= u[ℓ]^R[ℓ,rxn_term.k]
             end
             Jac[jac_term.i,jac_term.j] += Jtemp
