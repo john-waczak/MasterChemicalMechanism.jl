@@ -37,7 +37,7 @@ generate_config(fac_dict; model_name=model_name)
 include("./model/$(model_name)/config.jl")  # <-- we need to update to automatically generate this
 
 
-rate_list = generate_rrates(fac_dict; model_name=model_name, params=params)
+rate_list = generate_rrates(fac_dict; model_name=model_name, params=starting_params)
 include("./model/$(model_name)/rrates.jl")
 
 
@@ -65,7 +65,7 @@ Rvals = nonzeros(R)
 Vmat = copy(float(R)') # we should make sure this isn't a union type
 
 
-generate_rrates_mechanism(fac_dict, rate_list; model_name=model_name, params=params)
+generate_rrates_mechanism(fac_dict, rate_list; model_name=model_name, params=starting_params)
 include("./model/$(model_name)/rrates_mechanism.jl")
 k_rates = zeros(size(R,2))
 v = zeros(size(R,2))
@@ -75,7 +75,7 @@ size(R)
 idxs_reactants = findall(>(0), R[:,1])
 
 # compute conversion to ppb from molecules/cc
-m_init = M(params.T, params.P)
+m_init = M(starting_params.T, starting_params.P)
 nₘ = 10^9 # for ppb
 
 # generate sane initial conditions
@@ -99,7 +99,7 @@ end
 # combine parameters into one long tuple
 RO2 = sum(u₀[idx_ro2])
 
-n_days = 5
+n_days = 1
 tspan = (0.0, n_days*24.0*60.0)
 #tspan = (0.0, 15.0)
 tol = 1e-6
@@ -147,6 +147,7 @@ for j ∈ axes(Jprototype, 1)
         for k ∈ axes(R,2)
             if N[i,k] != 0 && R[j,k] > 0
                 reaction_indices = findall(x -> x > 0, R[:,k])
+                @assert j ∈ reaction_indices
                 indices_out = [j]
                 # add the rest of the indices so it's sorted with j first
                 for idx_rxn ∈ reaction_indices
@@ -166,11 +167,13 @@ size(derivative_terms)
 size(reaction_terms)
 size(jac_terms)
 
+jac_terms[1]
+
 reaction_terms[1]
 
 du_temp = 0.0
 Jtemp = 0.0
-ps = (params.T, params.P, N, R, derivative_terms, reaction_terms, idx_ro2, RO2, k_rates, du_temp, jac_terms, Jtemp)
+ps = (starting_params.T, starting_params.P, N, R, derivative_terms, reaction_terms, idx_ro2, RO2, k_rates, du_temp, jac_terms, Jtemp)
 
 # take a sample step to make sure everything is pre-compiled all nice
 u₀
@@ -179,7 +182,7 @@ f!(du, u₀, ps, 0.0)
 du
 @benchmark f!(du, u₀, ps, 0.0)
 
-Jtest = zeros(size(R,1), size(R,1))
+Jtest = copy(Jprototype)
 Jac!(Jtest, u₀, ps, 0.0)
 Jtest
 

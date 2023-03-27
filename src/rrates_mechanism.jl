@@ -125,17 +125,13 @@ compute_v = """
 update_J = """
 
     for jac_term ∈ jac_terms
-        i = jac_term.i
-        j = jac_term.j
-        rxn_terms = jac_term.ks
-
-        Jac[i,j] = 0
-        for rxn_term ∈ rxn_terms
-            Jtemp = N[i,j] * k_rates[rxn_term.k] * R[j,rxn_term.k] * u[j]^(R[j,rxn_term.k]-1)
-            for n ∈ rxn_term.is[2:end]
-                Jtemp *= u[n]^R[n,rxn_term.k]
+        Jac[jac_term.i,jac_term.j] = 0
+        for rxn_term ∈ jac_term.ks
+            Jtemp = N[jac_term.i,rxn_term.k] * k_rates[rxn_term.k] * R[jac_term.j,rxn_term.k] * u[jac_term.j]^(R[jac_term.j,rxn_term.k]-1)
+            for ℓ ∈ rxn_term.is[2:end]
+                Jtemp *= u[ℓ]^R[ℓ,rxn_term.k]
             end
-            Jac[i,j] += Jtemp
+            Jac[jac_term.i,jac_term.j] += Jtemp
         end
     end
 

@@ -4,3 +4,6 @@
 /Manifest.toml
 /docs/build/
 /model
+
+.DS_Store
+*DS_Store

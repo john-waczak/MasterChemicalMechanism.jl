@@ -58,7 +58,7 @@ N2(T,P) = 0.7809 * M(T,P)
 H2O(T,P) = 0.004 * M(T,P)
 
 # test it out... These will be our parameters later
-params = (
+starting_params = (
     T = 291.483, # 65 °F
     P = 1013.2  # milibars standard pressure
 )
