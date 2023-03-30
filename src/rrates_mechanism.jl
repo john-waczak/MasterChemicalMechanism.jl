@@ -122,13 +122,14 @@ compute_v = """
 
 # """
 
+
 update_J = """
 
     @inbounds for jac_term ∈ jac_terms
         Jac[jac_term.i,jac_term.j] = 0
         @inbounds for rxn_term ∈ jac_term.ks
             Jtemp = N[jac_term.i,rxn_term.k] * k_rates[rxn_term.k] * R[jac_term.j,rxn_term.k] * u[jac_term.j]^(R[jac_term.j,rxn_term.k]-1)
-            @inbounds for ℓ ∈ rxn_term.is[2:end]
+            @inbounds for ℓ ∈ @view rxn_term.is[2:end]
                 Jtemp *= u[ℓ]^R[ℓ,rxn_term.k]
             end
             Jac[jac_term.i,jac_term.j] += Jtemp
@@ -158,10 +159,11 @@ function generate_rrates_mechanism(fac_dict, rate_list; model_name::String="mcm"
     open(outpath, "w") do f
         # write the RHS function for the odes
         println(f, "function f!(du, u, p, t)")
-        println(f, "\t\t# unpack parameters")
-        # println(f, "\t\t$(param_names), N, R, Rrows, Rvals, idx_ro2, RO2, k_rates, v, Vmat = p")
-        # println(f, "\t\t$(param_names), N, R, derivative_terms, reaction_terms, idx_ro2, RO2, k_rates, du_temp = p")
-        println(f, "\t\t$(param_names), N, R, derivative_terms, reaction_terms, idx_ro2, RO2, k_rates, du_temp, jac_terms, Jtemp = p")
+        #println(f, "\t\t# unpack parameters")
+        #println(f, "\t\t$(param_names), N, R, Rrows, Rvals, idx_ro2, RO2, k_rates, v = p")
+        #println(f, "\t\t$(param_names), N, R, derivative_terms, reaction_terms, idx_ro2, RO2, k_rates, du_temp, jac_terms, Jtemp = p")
+        #println(f, "\t\t$(param_names) = p")
+
         println(f, "\n\t\t# for peroxy-radical sum")
         println(f, "\t\tRO2 = sum(u[idx_ro2])")
 
@@ -197,6 +199,7 @@ function generate_rrates_mechanism(fac_dict, rate_list; model_name::String="mcm"
         end
 
         println(f, update_J)
+        println(f, "\t\tnothing")
         println(f, "end")
     end
 

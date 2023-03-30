@@ -13,17 +13,17 @@ using LinearAlgebra
 
 using MasterChemicalMechanism
 
-# fpath = "./src/data/extracted/alkanes/methane.fac"
+fpath = "./src/data/extracted/alkanes/methane.fac"
 # fpath = "./src/data/extracted/alkanes/meth_eth_prop_but.fac"
 # fpath = "./src/data/extracted/monoterpines/alpha_pinene.fac"
 # fpath = "./src/data/extracted/monoterpines/limonene.fac"
 # fpath = "./src/data/extracted/monoterpines/monoterpines.fac"
 # fpath = "./src/data/extracted/alkanes/all_alkanes.fac"
-fpath = "./src/data/extracted/full/mcm_subset.fac"
+# fpath = "./src/data/extracted/full/mcm_subset.fac"
 # fpath = "./src/data/extracted/no_terpenes.fac"
 # fpath = "./src/data/extracted/through_but.fac"
 
-model_name = "mcm_full"
+model_name = "methane"
 @assert ispath(fpath)  == true
 
 fac_dict = read_fac_file(fpath)
@@ -55,21 +55,21 @@ include("./model/$(model_name)/photolysis.jl")
 
 generate_stoich_mat(fac_dict; model_name=model_name)
 # overall, reactants, reactant_indicator
-N = get_sparse_mat(mat_name="N", model_name=model_name)
-Nrows = rowvals(N)
-Nvals = nonzeros(N)
 
-R = get_sparse_mat(mat_name="R", model_name=model_name)
-Rrows = rowvals(R)
-Rvals = nonzeros(R)
-Vmat = copy(float(R)') # we should make sure this isn't a union type
+const N = get_sparse_mat(mat_name="N", model_name=model_name)
+const Nrows = rowvals(N)
+const Nvals = nonzeros(N)
+
+const R = get_sparse_mat(mat_name="R", model_name=model_name)
+const Rrows = rowvals(R)
+const Rvals = nonzeros(R)
 
 
 generate_rrates_mechanism(fac_dict, rate_list; model_name=model_name, params=starting_params)
 include("./model/$(model_name)/rrates_mechanism.jl")
-k_rates = zeros(size(R,2))
-v = zeros(size(R,2))
-Jtemp = 0.0
+const k_rates = zeros(size(R,2))
+const v = zeros(size(R,2))
+const Jtemp = 0.0
 
 size(R)
 idxs_reactants = findall(>(0), R[:,1])
@@ -97,87 +97,27 @@ for (key, val) ∈ init_dict
 end
 
 # combine parameters into one long tuple
-RO2 = sum(u₀[idx_ro2])
+const RO2 = sum(u₀[idx_ro2])
 
 n_days = 1
 tspan = (0.0, n_days*24.0*60.0)
+#tspan = (0.0, 60.0)
 #tspan = (0.0, 15.0)
 tol = 1e-6
-
 
 
 # -----------------------------------------
 # generate derivative terms
 # -----------------------------------------
-derivative_terms = get_derivative_terms(N)
-reaction_terms = get_reaction_terms(R)
+const derivative_terms = get_derivative_terms(N)
+const reaction_terms = get_reaction_terms(R)
 
-derivative_terms
-reaction_terms
 # -----------------------------------------
 # copute jacobian terms
 # -----------------------------------------
 
-jac_terms = JacobianTerms[]
-Jprototype = zeros(Float64, size(R,1), size(R,1))
-
-In,Kn,Vn = findnz(N)
-
-for (i,k) ∈ zip(In, Kn)
-    for j ∈ axes(R,1)
-        if N[i,k] != 0 && R[j,k] > 0
-            # isinJ[i,j,k] = 1
-            Jprototype[i,j] = 1.0
-        end
-    end
-end
-
-
-# Jprototype2 = zeros(Float64, size(R,1), size(R,1))
-# for k ∈ axes(R,2)
-#     for j ∈ axes(R,1)
-#         for i ∈ axes(N,1)
-#             if N[i,k] != 0 && R[j,k] > 0
-#                 # isinJ[i,j,k] = 1
-#                 Jprototype2[i,j] = 1.0
-#             end
-#         end
-#     end
-# end
-
-# all(Jprototype .== Jprototype2)
-
-
-Jprototype = sparse(Jprototype)
-println("nonzero %: ", 100*length(nonzeros(Jprototype))/(size(Jprototype,1)^2))
-
-# loop over all (i,j) pairs in Jprototype
-
-Jprot_rows = rowvals(Jprototype)
-Jprot_vals = nonzeros(Jprototype)
-
-for j ∈ axes(Jprototype, 1)
-    for i_row ∈ nzrange(Jprototype, j)
-        i = Jprot_rows[i_row]
-        rxn_terms = ReactionTerms[]
-        for k ∈ axes(R,2)
-            if N[i,k] != 0 && R[j,k] > 0
-                reaction_indices = findall(x -> x > 0, R[:,k])
-                @assert j ∈ reaction_indices
-                indices_out = [j]
-                # add the rest of the indices so it's sorted with j first
-                for idx_rxn ∈ reaction_indices
-                    if idx_rxn != j
-                        push!(indices_out, idx_rxn)
-                    end
-                end
-
-                push!(rxn_terms, ReactionTerms(k, indices_out))
-            end
-        end
-        push!(jac_terms, JacobianTerms(i,j,rxn_terms))
-    end
-end
+const Jprototype = get_jac_prototype(N,R)
+const jac_terms = get_jac_terms(Jprototype, N, R)
 
 size(derivative_terms)
 size(reaction_terms)
@@ -187,30 +127,74 @@ jac_terms[1]
 
 reaction_terms[1]
 
-du_temp = 0.0
-Jtemp = 0.0
-ps = (starting_params.T, starting_params.P, N, R, derivative_terms, reaction_terms, idx_ro2, RO2, k_rates, du_temp, jac_terms, Jtemp)
+const du_temp = 0.0
+const Jtemp = 0.0
+
+# ps = (starting_params.T, starting_params.P)
+
+const T = starting_params.T
+const P = starting_params.P
+# ps = (starting_params.T, starting_params.P, N, R, derivative_terms, reaction_terms, idx_ro2, RO2, k_rates, du_temp, jac_terms, Jtemp)
+# ps = (starting_params.T, starting_params.P, N, R, Rrows, Rvals, idx_ro2, RO2, k_rates, v)
+
 
 # take a sample step to make sure everything is pre-compiled all nice
 u₀
 du = copy(u₀)
-f!(du, u₀, ps, 0.0)
+# f!(du, u₀, ps, 0.0)
+f!(du, u₀, nothing, 0.0)
 du
-@benchmark f!(du, u₀, ps, 0.0)
+@benchmark f!(du, u₀, nothing, 0.0)
 
-Jtest = copy(Jprototype)
-Jac!(Jtest, u₀, ps, 0.0)
-Jtest
 
-@benchmark Jac!(Jtest, u₀, ps, 0.0)
 
+# Jtest = copy(Jprototype)
+# Jac!(Jtest, u₀, ps, 0.0)
+# Jtest
+
+# @benchmark Jac!(Jtest, u₀, ps, 0.0)
 
 
 # set up second odeproblem for comparison
 #fun = ODEFunction(f!; jac=Jac!, jac_prototype=JP)
-ode_prob = @time ODEProblem{true, SciMLBase.FullSpecialize}(f!, u₀, tspan, ps)
-fun = ODEFunction(f!; jac=Jac!, jac_prototype=Jprototype)
-ode_prob_2 = @time ODEProblem{true, SciMLBase.FullSpecialize}(fun, u₀, tspan, ps)
+ode_prob = @time ODEProblem{true, SciMLBase.FullSpecialize}(f!, u₀, tspan)
+#ode_prob = @time ODEProblem{true, SciMLBase.FullSpecialize}(f!, u₀, tspan, ps)
+# fun = ODEFunction(f!; jac=Jac!, jac_prototype=Jprototype)
+# fun = ODEFunction(f!;  jac_prototype=Jprototype)
+# ode_prob_2 = @time ODEProblem{true, SciMLBase.FullSpecialize}(fun, u₀, tspan, ps)
+
+
+using Zygote, SciMLSensitivity
+
+
+# we should test forward sensitivity and reverse via QuadratureAdjoint
+# ForwardSenitivity
+# QuadratureAdjoint
+# BacksolveAdjoint
+# InterpolatingAdjoint
+
+function sum_of_solution(u₀)
+    _prob = remake(ode_prob; u0=u₀, p=[0.0])
+    sum(solve(_prob, CVODE_BDF(); saveat=15.0, reltol=tol, abstol=tol, sensealg=QuadratureAdjoint()))
+end
+
+function sum_of_solution2(u₀)
+    _prob = remake(ode_prob; u0=u₀, p=[0.0])
+    sum(solve(_prob, CVODE_BDF(); saveat=15.0, reltol=tol, abstol=tol, sensealg=InterpolatingAdjoint()))
+end
+
+
+function sum_of_solution3(u₀)
+    _prob = remake(ode_prob; u0=u₀, p=[0.0])
+    sum(solve(_prob, CVODE_BDF(); saveat=15.0, reltol=tol, abstol=tol, sensealg=BacksolveAdjoint()))
+end
+
+@benchmark Zygote.gradient(sum_of_solution, u₀)
+@benchmark Zygote.gradient(sum_of_solution2, u₀)
+# @benchmark Zygote.gradient(sum_of_solution3, u₀) unstable
+
+
+
 
 @benchmark solve(
     ode_prob,
@@ -227,6 +211,14 @@ ode_prob_2 = @time ODEProblem{true, SciMLBase.FullSpecialize}(fun, u₀, tspan, 
     reltol=tol,
     abstol=tol,
 )
+
+# @benchmark solve(
+#     ode_prob_2,
+#     QNDF();
+#     saveat=15.0,
+#     reltol=tol,
+#     abstol=tol,
+# )
 
 
 sol = @time solve(
@@ -237,6 +229,7 @@ sol = @time solve(
     abstol=tol,
 );
 
+
 sol2 = @time solve(
     ode_prob_2,
     CVODE_BDF();
@@ -244,8 +237,6 @@ sol2 = @time solve(
     reltol=tol,
     abstol=tol,
 );
-
-
 
 
 
